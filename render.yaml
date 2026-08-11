@@ -1,18 +1,19 @@
 services:
   - type: web
-    runtime: docker
+    runtime: python
     name: theos-compiler-bot
     region: frankfurt
-    plan: starter
+    plan: free
+    buildCommand: "./install.sh"
+    startCommand: "python bot.py"
     healthCheckPath: /health
-    autoDeployTrigger: commit
     envVars:
       - key: TELEGRAM_TOKEN
-        sync: false
+        value: "8683956903:AAHfM4eybz3oLKi-SWXr6TzsHzMRaoUwI-M"
       - key: LOG_GROUP_ID
-        sync: false
+        value: "0"
       - key: THEOS
-        value: /opt/theos
+        value: "/opt/theos"
       - key: MAX_CONCURRENT_BUILDS
         value: "1"
       - key: BUILD_TIMEOUT

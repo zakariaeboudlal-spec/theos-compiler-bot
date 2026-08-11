@@ -1,20 +1,20 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -e
+echo "Starting installation..."
 
-echo "Installing Theos Compiler Bot..."
+pip install --no-cache-dir -r requirements.txt
 
-# Install system dependencies
-sudo apt-get update
-sudo apt-get install -y python3 python3-pip unrar p7zip-full
+# Setup Theos
+THEOS_DIR=${THEOS:-/opt/theos}
+if mkdir -p "$THEOS_DIR" 2>/dev/null; then
+    echo "Installing Theos to $THEOS_DIR..."
+    git clone --recursive https://github.com/theos/theos.git "$THEOS_DIR" || echo "Theos already cloned or failed"
+else
+    echo "Fallback to user home for Theos..."
+    THEOS_DIR="$HOME/theos"
+    mkdir -p "$THEOS_DIR"
+    git clone --recursive https://github.com/theos/theos.git "$THEOS_DIR" || echo "Theos already cloned or failed"
+    export THEOS="$THEOS_DIR"
+fi
 
-# Install Python dependencies
-pip3 install -r requirements.txt
-
-# Setup systemd service
-sudo cp theos-bot.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable theos-bot
-sudo systemctl start theos-bot
-
-echo "Installation complete!"
-echo "Check status: sudo systemctl status theos-bot"
-echo "View logs: sudo journalctl -u theos-bot -f"
+echo "Installation completed successfully."
