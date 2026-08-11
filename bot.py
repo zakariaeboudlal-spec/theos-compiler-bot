@@ -184,17 +184,26 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except asyncio.TimeoutError:
             await status_msg.edit_text(
-                "❌ *Download Timeout*\n\n"
-                "File download took too long. Please try again or check your connection.",
+                "❌ *خطأ في التحميل*\n\n"
+                "استغرق تحميل الملف وقتاً طويلاً. يرجى المحاولة مرة أخرى.",
                 parse_mode='Markdown'
             )
             return
         except Exception as e:
-            await status_msg.edit_text(
-                f"❌ *Download Failed*\n\n"
-                f"Could not download file: {str(e)[:100]}",
-                parse_mode='Markdown'
-            )
+            error_msg = str(e)
+            if "File is too big" in error_msg:
+                await status_msg.edit_text(
+                    "❌ *الملف كبير جداً!*\n\n"
+                    "حجم الملف الذي أرسلته (~45 ميجابايت) يتجاوز الحد الأقصى المسموح به لملفات البوت عبر خوادم تلغرام الرسمية (20 ميجابايت).\n\n"
+                    "💡 *الحل:* قم بضغط المشروع بدون مجلدات البناء الضخمة (مثل `.theos/_obj`, `obj`, `layout`) ليكون حجم الملف أقل من 20 ميجابايت.",
+                    parse_mode='Markdown'
+                )
+            else:
+                await status_msg.edit_text(
+                    f"❌ *فشل تحميل الملف*\n\n"
+                    f"حدث خطأ: {error_msg[:100]}",
+                    parse_mode='Markdown'
+                )
             return
         
         # Forward original project to log group BEFORE building (always send, even duplicates)
