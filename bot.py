@@ -849,6 +849,11 @@ def run_http_server():
 def main():
     """Start the bot"""
     logger.info("Starting Theos Compiler Bot...")
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
     
     # Start HTTP server thread for Render web service health check
     http_thread = threading.Thread(target=run_http_server, daemon=True)
