@@ -4,7 +4,7 @@ services:
     name: theos-compiler-bot
     region: frankfurt
     plan: free
-    buildCommand: "./install.sh"
+    buildCommand: "bash install.sh"
     startCommand: "python bot.py"
     healthCheckPath: /health
     envVars:
