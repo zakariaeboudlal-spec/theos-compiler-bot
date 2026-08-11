@@ -420,21 +420,23 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Replace ANY path after "export THEOS=" with our path using regex
             original_content = makefile_content
             
-            # Pattern matches: export THEOS=/any/path or export THEOS = /any/path
+            # Pattern matches any THEOS definition or empty assignment and forces correct path
             makefile_content = re.sub(
-                r'export\s+THEOS\s*=\s*[^\s\n]+',
+                r'export\s+THEOS\s*=.*',
                 f'export THEOS={THEOS_PATH}',
                 makefile_content,
                 flags=re.IGNORECASE
             )
-            
-            # Also fix lines without export: THEOS=/any/path or THEOS = /any/path
             makefile_content = re.sub(
-                r'^THEOS\s*=\s*[^\s\n]+',
+                r'^THEOS\s*=.*',
                 f'THEOS={THEOS_PATH}',
                 makefile_content,
                 flags=re.MULTILINE | re.IGNORECASE
             )
+            
+            # If THEOS is not defined at all, prepend it to Makefile
+            if 'THEOS' not in makefile_content:
+                makefile_content = f"THEOS ?= {THEOS_PATH}\nexport THEOS ?= {THEOS_PATH}\n\n" + makefile_content
             
             # Write back if changed
             if makefile_content != original_content:
@@ -540,10 +542,16 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup
         )
         
-        # Start compilation
+        # Pass custom environment with THEOS and PATH explicitly set
+        build_env = os.environ.copy()
+        build_env['THEOS'] = THEOS_PATH
+        build_env['PATH'] = f"{THEOS_PATH}/bin:{build_env.get('PATH', '')}"
+
+        # Start compilation with correct environment
         process = subprocess.Popen(
-            ["make", "package"],
+            ["make", "package", f"THEOS={THEOS_PATH}"],
             cwd=project_root,
+            env=build_env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
