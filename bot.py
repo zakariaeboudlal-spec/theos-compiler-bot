@@ -580,9 +580,24 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup
         )
         
+        # Force stable SDK and disable modules to avoid "function does not return string type" errors
+        # This is critical for compatibility on Linux toolchains
+        make_args = [
+            "make", "package", 
+            f"THEOS={THEOS_PATH}", 
+            f"THEOS_MAKE_PATH={build_env['THEOS_MAKE_PATH']}",
+            "TARGET=iphone:clang:14.5:12.0",
+            "ADDITIONAL_CFLAGS=-fno-modules",
+            "ADDITIONAL_OBJCFLAGS=-fno-modules",
+            "FINALPACKAGE=1",
+            "DEBUG=0"
+        ]
+        
+        logger.info(f"Starting build with args: {' '.join(make_args)}")
+        
         # Start compilation with correct environment
         process = subprocess.Popen(
-            ["make", "package", f"THEOS={THEOS_PATH}", f"THEOS_MAKE_PATH={build_env['THEOS_MAKE_PATH']}"],
+            make_args,
             cwd=project_root,
             env=build_env,
             stdout=subprocess.PIPE,
