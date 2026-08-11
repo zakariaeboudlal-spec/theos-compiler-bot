@@ -161,7 +161,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         make_cmd = [
             "make", "package",
             f"THEOS={THEOS_PATH}",
-            "TARGET=iphone:clang:14.5:12.0",
+            "TARGET=iphone:clang:12.4:12.0",
             "ADDITIONAL_CFLAGS=-fno-modules",
             "ADDITIONAL_OBJCFLAGS=-fno-modules",
             "FINALPACKAGE=1", "DEBUG=0"

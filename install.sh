@@ -26,11 +26,11 @@ if [ ! -d "$THEOS/toolchain" ]; then
     rm /tmp/toolchain.tar.lzma
 fi
 
-# 5. Download iOS 14.5 SDK (Only what's needed)
-if [ ! -d "$THEOS/sdks/iPhoneOS14.5.sdk" ]; then
-    echo "📥 Downloading SDK 14.5..."
+# 5. Download iOS 12.4 SDK (Stable for Linux Toolchain)
+if [ ! -d "$THEOS/sdks/iPhoneOS12.4.sdk" ]; then
+    echo "📥 Downloading SDK 12.4..."
     mkdir -p "$THEOS/sdks"
-    curl -L https://github.com/theos/sdks/raw/master/iPhoneOS14.5.sdk.tar.xz -o /tmp/sdk.tar.xz
+    curl -L https://github.com/theos/sdks/raw/master/iPhoneOS12.4.sdk.tar.xz -o /tmp/sdk.tar.xz
     tar -xf /tmp/sdk.tar.xz -C "$THEOS/sdks/"
     rm /tmp/sdk.tar.xz
 fi
