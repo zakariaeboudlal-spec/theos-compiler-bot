@@ -523,7 +523,15 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.warning(f"Could not create Filter.plist for user {user_id}: {e}")
         
-        # Setup environment
+        # Ensure THEOS exists and is fully populated before build
+        if not os.path.exists(os.path.join(THEOS_PATH, 'makefiles', 'tweak.mk')):
+            logger.info(f"Theos not found at {THEOS_PATH}, cloning/repairing...")
+            os.makedirs(THEOS_PATH, exist_ok=True)
+            try:
+                subprocess.run(["git", "clone", "--recursive", "https://github.com/theos/theos.git", THEOS_PATH], check=True, capture_output=True, timeout=120)
+            except Exception as e:
+                logger.error(f"Failed to auto-clone Theos: {e}")
+        
         os.environ['THEOS'] = THEOS_PATH
         
         # Clean previous builds with timeout
