@@ -1,6 +1,6 @@
 # 🔧 Theos Compiler Bot
 
-**© 2024 smartpepole — All Rights Reserved**
+**© 2024 staline777 — All Rights Reserved**
 
 ---
 
@@ -42,7 +42,7 @@ sudo apt-get install -y git curl make clang
 
 ```bash
 # إنشاء مجلد Theos
-export THEOS=/home/smartpepole/theos
+export THEOS=/home/staline777/theos
 
 # تحميل Theos من السيرفر الرسمي
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
@@ -53,7 +53,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/i
 ### الخطوة 3 — إضافة THEOS للـ PATH
 
 ```bash
-echo 'export THEOS=/home/smartpepole/theos' >> ~/.bashrc
+echo 'export THEOS=/home/staline777/theos' >> ~/.bashrc
 echo 'export PATH=$THEOS/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 ```
@@ -72,8 +72,8 @@ cp -r /tmp/theos_sdks/*.sdk $THEOS/sdks/
 ### الخطوة 1 — تحميل المشروع
 
 ```bash
-git clone https://github.com/smartpepole/theos-compiler-bot.git /home/smartpepole/theos-bot
-cd /home/smartpepole/theos-bot
+git clone https://github.com/staline777/theos-compiler-bot.git /home/staline777/theos-bot
+cd /home/staline777/theos-bot
 ```
 
 ### الخطوة 2 — إعداد التوكن
@@ -122,7 +122,7 @@ sudo journalctl -u theos-bot -f
 | المتغير | القيمة الافتراضية | الشرح |
 |---|---|---|
 | `TELEGRAM_TOKEN` | — | توكن البوت من BotFather |
-| `THEOS_PATH` | `/home/smartpepole/theos` | مسار Theos على السيرفر |
+| `THEOS_PATH` | `/home/staline777/theos` | مسار Theos على السيرفر |
 | `WORK_DIR` | `/tmp/theos_builds` | مجلد مؤقت للبيلد |
 | `MAX_CONCURRENT_BUILDS` | `3` | عدد البيلدات المتزامنة |
 | `BUILD_TIMEOUT` | `900` (15 دقيقة) | مهلة البيلد بالثواني |
@@ -192,14 +192,14 @@ sudo journalctl -u theos-bot -n 50
 
 **مشكلة في الصلاحيات:**
 ```bash
-sudo chown -R smartpepole:smartpepole /home/smartpepole/theos
-sudo chown -R smartpepole:smartpepole /home/smartpepole/theos-bot
+sudo chown -R staline777:staline777 /home/staline777/theos
+sudo chown -R staline777:staline777 /home/staline777/theos-bot
 ```
 
 ---
 
 ## 👤 المطور
 
-**smartpepole** — [@smartpepole](https://t.me/smartpepole)
+**staline777** — [@staline777](https://t.me/staline777)
 
-© 2024 smartpepole. All Rights Reserved.
+© 2024 staline777. All Rights Reserved.
