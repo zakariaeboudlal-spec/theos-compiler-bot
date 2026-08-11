@@ -419,17 +419,27 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             original_content = makefile_content
             
-            # Filter out any existing THEOS or export THEOS lines and force correct THEOS path at the top
+            # Robust Makefile patching for Theos paths
+            makefile_content = re.sub(r'include\s+/opt/theos/makefiles/', f'include {THEOS_PATH}/makefiles/', makefile_content)
+            makefile_content = re.sub(r'include\s+/opt/render/project/src/theos/makefiles/', f'include {THEOS_PATH}/makefiles/', makefile_content)
+            
             lines = makefile_content.splitlines()
-            new_lines = [
-                f"THEOS = {THEOS_PATH}",
-                f"export THEOS = {THEOS_PATH}"
-            ]
+            cleaned_lines = []
             for line in lines:
                 stripped = line.strip()
                 if stripped.startswith("export THEOS") or stripped.startswith("THEOS="):
                     continue
-                new_lines.append(line)
+                if stripped in ["include /tweak.mk", "include /common.mk", "include /aggregate.mk"]:
+                    continue
+                cleaned_lines.append(line)
+            
+            new_lines = [
+                f"THEOS = {THEOS_PATH}",
+                f"export THEOS = {THEOS_PATH}",
+                f"THEOS_MAKE_PATH = $(THEOS)/makefiles",
+                f"export THEOS_MAKE_PATH = $(THEOS)/makefiles"
+            ] + cleaned_lines
+            
             makefile_content = "\n".join(new_lines)
             
             # Write back if changed
