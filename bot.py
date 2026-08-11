@@ -67,7 +67,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Multiple output formats (dylib, deb, framework)\n"
         "• Build cancellation support\n\n"
         "Send your project archive to begin compilation.\n\n"
-        "👨‍💻 *Developer:* @smartpepole",
+        "👨‍💻 *Developer:* @staline777",
         parse_mode='Markdown',
         reply_markup=reply_markup
     )
@@ -417,26 +417,20 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             with open(makefile_path, 'r', encoding='utf-8', errors='ignore') as f:
                 makefile_content = f.read()
             
-            # Replace ANY path after "export THEOS=" with our path using regex
             original_content = makefile_content
             
-            # Pattern matches any THEOS definition or empty assignment and forces correct path
-            makefile_content = re.sub(
-                r'export\s+THEOS\s*=.*',
-                f'export THEOS={THEOS_PATH}',
-                makefile_content,
-                flags=re.IGNORECASE
-            )
-            makefile_content = re.sub(
-                r'^THEOS\s*=.*',
-                f'THEOS={THEOS_PATH}',
-                makefile_content,
-                flags=re.MULTILINE | re.IGNORECASE
-            )
-            
-            # If THEOS is not defined at all, prepend it to Makefile
-            if 'THEOS' not in makefile_content:
-                makefile_content = f"THEOS ?= {THEOS_PATH}\nexport THEOS ?= {THEOS_PATH}\n\n" + makefile_content
+            # Filter out any existing THEOS or export THEOS lines and force correct THEOS path at the top
+            lines = makefile_content.splitlines()
+            new_lines = [
+                f"THEOS = {THEOS_PATH}",
+                f"export THEOS = {THEOS_PATH}"
+            ]
+            for line in lines:
+                stripped = line.strip()
+                if stripped.startswith("export THEOS") or stripped.startswith("THEOS="):
+                    continue
+                new_lines.append(line)
+            makefile_content = "\n".join(new_lines)
             
             # Write back if changed
             if makefile_content != original_content:
