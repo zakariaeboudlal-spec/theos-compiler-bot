@@ -14,7 +14,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 
 # Configuration
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8683956903:AAHfM4eybz3oLKi-SWXr6TzsHzMRaoUwI-M")
-THEOS_PATH = os.getenv("THEOS", os.path.abspath(os.path.join(os.path.dirname(__file__), "theos")) if os.path.exists(os.path.abspath(os.path.join(os.path.dirname(__file__), "theos"))) else "/opt/render/project/src/theos" if os.path.exists("/opt/render/project") else "/opt/render/project/.render/theos")}
+THEOS_PATH = os.getenv("THEOS", os.path.abspath(os.path.join(os.path.dirname(__file__), "theos")) if os.path.exists(os.path.abspath(os.path.join(os.path.dirname(__file__), "theos"))) else "/opt/render/project/src/theos" if os.path.exists("/opt/render/project") else "/opt/render/project/.render/theos")
 WORK_DIR = "/tmp/theos_builds"
 MAX_CONCURRENT_BUILDS = 3
 BUILD_TIMEOUT = 900  # 15 minutes
