@@ -1,0 +1,23 @@
+services:
+  - type: web
+    runtime: docker
+    name: theos-compiler-bot
+    region: frankfurt
+    plan: starter
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: LOG_GROUP_ID
+        sync: false
+      - key: THEOS
+        value: /opt/theos
+      - key: MAX_CONCURRENT_BUILDS
+        value: "1"
+      - key: BUILD_TIMEOUT
+        value: "900"
+      - key: MAX_FILE_SIZE_MB
+        value: "100"
+      - key: RATE_LIMIT_MINUTES
+        value: "1"
