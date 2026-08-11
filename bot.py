@@ -429,7 +429,11 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 stripped = line.strip()
                 if stripped.startswith("export THEOS") or stripped.startswith("THEOS="):
                     continue
-                if stripped in ["include /tweak.mk", "include /common.mk", "include /aggregate.mk"]:
+                if stripped.startswith("export THEOS_MAKE_PATH") or stripped.startswith("THEOS_MAKE_PATH="):
+                    continue
+                if "/tweak.mk" in stripped and "include" in stripped and "$" not in stripped:
+                    continue
+                if "/common.mk" in stripped and "include" in stripped and "$" not in stripped:
                     continue
                 cleaned_lines.append(line)
             
@@ -546,7 +550,15 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         build_env = os.environ.copy()
         build_env["THEOS"] = THEOS_PATH
         build_env["THEOS_MAKE_PATH"] = os.path.join(THEOS_PATH, "makefiles")
-        build_env["PATH"] = f"{THEOS_PATH}/bin:{build_env.get('PATH', '')}"
+        
+        # Add local lib to LD_LIBRARY_PATH for libtinfo5 and libssl1.1
+        lib_path = os.path.join(os.getcwd(), "lib")
+        current_ld = build_env.get("LD_LIBRARY_PATH", "")
+        build_env["LD_LIBRARY_PATH"] = f"{lib_path}:{current_ld}" if current_ld else lib_path
+        
+        # Add toolchain to PATH
+        toolchain_bin = os.path.join(THEOS_PATH, "toolchain", "bin")
+        build_env["PATH"] = f"{toolchain_bin}:{THEOS_PATH}/bin:{build_env.get('PATH', '')}"
         
         # Clean previous builds with timeout
         try:
