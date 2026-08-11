@@ -7,6 +7,7 @@ import asyncio
 import logging
 import re
 import threading
+import time
 from pathlib import Path
 from collections import defaultdict
 from datetime import datetime, timedelta
@@ -16,8 +17,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 
 # Configuration
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8683956903:AAHfM4eybz3oLKi-SWXr6TzsHzMRaoUwI-M")
-# Render persistent path or default
-THEOS_PATH = os.getenv("THEOS", "/opt/render/project/src/theos")
+# Use a path that is more likely to persist or at least be accessible
+THEOS_PATH = os.getenv("THEOS", "/home/ubuntu/theos" if os.path.exists("/home/ubuntu") else "/opt/render/project/src/theos")
 WORK_DIR = "/tmp/theos_builds"
 MAX_CONCURRENT_BUILDS = int(os.getenv("MAX_CONCURRENT_BUILDS", "3"))
 BUILD_TIMEOUT = int(os.getenv("BUILD_TIMEOUT", "900"))
@@ -40,56 +41,67 @@ build_lock = asyncio.Lock()
 user_last_build = defaultdict(lambda: datetime.min)
 active_processes = {}
 
+# --- Self-Healing Theos Setup ---
+def ensure_theos_installed():
+    """Checks if Theos is present, if not, installs a minimal version quickly."""
+    if os.path.exists(os.path.join(THEOS_PATH, "makefiles", "tweak.mk")):
+        return True
+    
+    logger.info("Theos not found or incomplete. Starting emergency installation...")
+    try:
+        os.makedirs(os.path.dirname(THEOS_PATH), exist_ok=True)
+        # Clone minimal Theos
+        subprocess.run(["git", "clone", "--depth", "1", "--recurse-submodules", "https://github.com/theos/theos.git", THEOS_PATH], check=True)
+        
+        # Download Toolchain (Sbingner)
+        toolchain_path = os.path.join(THEOS_PATH, "toolchain")
+        os.makedirs(toolchain_path, exist_ok=True)
+        subprocess.run(["curl", "-L", "https://github.com/sbingner/llvm-project/releases/download/v10.0.0-1/linux-ios-arm64e-clang-toolchain.tar.lzma", "-o", "/tmp/toolchain.tar.lzma"], check=True)
+        subprocess.run(["tar", "--lzma", "-xf", "/tmp/toolchain.tar.lzma", "-C", toolchain_path, "--strip-components=1"], check=True)
+        
+        # Download SDK 12.4
+        sdks_path = os.path.join(THEOS_PATH, "sdks")
+        os.makedirs(sdks_path, exist_ok=True)
+        subprocess.run(["curl", "-L", "https://github.com/theos/sdks/raw/master/iPhoneOS12.4.sdk.tar.xz", "-o", "/tmp/sdk.tar.xz"], check=True)
+        subprocess.run(["tar", "-xf", "/tmp/sdk.tar.xz", "-C", sdks_path], check=True)
+        
+        # Cleanup
+        if os.path.exists("/tmp/toolchain.tar.lzma"): os.remove("/tmp/toolchain.tar.lzma")
+        if os.path.exists("/tmp/sdk.tar.xz"): os.remove("/tmp/sdk.tar.xz")
+        
+        logger.info("Emergency Theos installation complete.")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to install Theos: {e}")
+        return False
+
 # --- Health Check Server ---
 health_app = Flask(__name__)
 
 @health_app.route('/health')
 def health_check():
-    status = "READY" if os.path.exists(THEOS_PATH) else "INITIALIZING"
+    status = "READY" if os.path.exists(os.path.join(THEOS_PATH, "makefiles", "tweak.mk")) else "SETUP_REQUIRED"
     return f"Status: {status}", 200
 
 @health_app.route('/')
 def index():
-    return f"Theos Compiler Bot is active. THEOS_PATH: {THEOS_PATH}", 200
+    return f"Theos Compiler Bot active. Path: {THEOS_PATH}", 200
 
 def run_http_server():
     port = int(os.getenv("PORT", "10000"))
-    logger.info(f"Starting health check server on port {port}")
     health_app.run(host='0.0.0.0', port=port)
 
 # --- Bot Logic ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != 'private': return
-    
-    keyboard = [[InlineKeyboardButton("📊 Server Status", callback_data="status")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
     await update.message.reply_text(
-        "🚀 *Theos Compiler Bot (L3CHBA Edition)*\n\n"
-        "أهلاً بك! أنا جاهز لتجميع مشاريع iOS الخاصة بك.\n\n"
-        "📦 *الصيغ المدعومة:* zip, rar, 7z, tar.gz\n"
-        "🛠️ *البيئة:* Theos + iOS 12.4 SDK (Stable)\n\n"
-        "أرسل ملف المشروع وسأقوم بتصحيح الـ Makefile وتجميعه تلقائياً.\n\n"
-        "👨‍💻 *المطور:* @staline777",
-        parse_mode='Markdown',
-        reply_markup=reply_markup
+        "🚀 *Theos Compiler Bot (Stable Edition)*\n\n"
+        "أهلاً بك! سأقوم بتجميع مشاريعك باستخدام SDK 12.4.\n"
+        "سأقوم بتصحيح أي أخطاء في مسارات Makefile تلقائياً.\n\n"
+        "أرسل ملف المشروع الآن.",
+        parse_mode='Markdown'
     )
-
-async def status_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    async with build_lock: builds = active_builds
-    
-    theos_status = "✅ Installed" if os.path.exists(THEOS_PATH) else "❌ Not Found"
-    status_text = (
-        f"📊 *Server Status*\n\n"
-        f"Builds: {builds}/{MAX_CONCURRENT_BUILDS}\n"
-        f"Theos: {theos_status}\n"
-        f"SDK: iPhoneOS 12.4\n"
-        f"Path: `{THEOS_PATH}`"
-    )
-    await query.edit_message_text(status_text, parse_mode='Markdown')
 
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global active_builds
@@ -98,78 +110,58 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     doc = update.message.document
     user_id = update.effective_user.id
     
-    if not os.path.exists(THEOS_PATH):
-        await update.message.reply_text("❌ Theos is still installing on the server. Please wait a few minutes.")
-        return
-
-    if doc.file_size > MAX_FILE_SIZE_MB * 1024 * 1024:
-        await update.message.reply_text("❌ File too large.")
-        return
-
-    if datetime.now() - user_last_build[user_id] < timedelta(minutes=RATE_LIMIT_MINUTES):
-        await update.message.reply_text("⏳ Please wait 1 minute.")
+    status_msg = await update.message.reply_text("🔍 Checking environment...", parse_mode='Markdown')
+    
+    # Ensure Theos is ready
+    if not ensure_theos_installed():
+        await status_msg.edit_text("❌ Critical Error: Theos environment could not be initialized. Please contact admin.")
         return
 
     async with build_lock:
         if active_builds >= MAX_CONCURRENT_BUILDS:
-            await update.message.reply_text("⏳ Server busy, try again.")
+            await status_msg.edit_text("⏳ Server busy, try again in a moment.")
             return
         active_builds += 1
     
     user_last_build[user_id] = datetime.now()
-    status_msg = await update.message.reply_text("📥 Received. Preparing build...", parse_mode='Markdown')
+    await status_msg.edit_text("📥 Downloading project...", parse_mode='Markdown')
     
-    build_dir = os.path.join(WORK_DIR, f"build_{user_id}_{int(datetime.now().timestamp())}")
+    build_dir = os.path.join(WORK_DIR, f"build_{user_id}_{int(time.time())}")
     os.makedirs(build_dir, exist_ok=True)
     
     try:
-        # Download
         file = await context.bot.get_file(doc.file_id)
         archive_path = os.path.join(build_dir, doc.file_name)
         await file.download_to_drive(archive_path)
         
-        # Extract
         extract_dir = os.path.join(build_dir, "project")
         os.makedirs(extract_dir)
         patoolib.extract_archive(archive_path, outdir=extract_dir)
         
-        # Find project root (where Makefile is)
         project_root = extract_dir
-        for root, dirs, files in os.walk(extract_dir):
+        for root, _, files in os.walk(extract_dir):
             if 'Makefile' in files:
                 project_root = root
                 break
         
-        # --- PATCH MAKEFILE ---
+        # Patch Makefile
         makefile_path = os.path.join(project_root, "Makefile")
         if os.path.exists(makefile_path):
-            with open(makefile_path, 'r') as f:
-                content = f.read()
-            
-            # Replace hardcoded THEOS paths
-            content = re.sub(r'THEOS\s*[:?]?=\s*/opt/theos', f'THEOS = {THEOS_PATH}', content)
-            content = re.sub(r'\$\(THEOS\)/makefiles/tweak.mk', f'{THEOS_PATH}/makefiles/tweak.mk', content)
-            
-            # Ensure THEOS is set at the top
-            if 'THEOS =' not in content[:100]:
-                content = f"THEOS = {THEOS_PATH}\n" + content
-            
-            with open(makefile_path, 'w') as f:
-                f.write(content)
-            logger.info(f"Patched Makefile for user {user_id}")
+            with open(makefile_path, 'r') as f: content = f.read()
+            # Force THEOS path at the very beginning
+            content = f"THEOS = {THEOS_PATH}\ninclude $(THEOS)/makefiles/common.mk\n" + content
+            # Remove any conflicting definitions
+            content = re.sub(r'THEOS\s*[:?]?=.*', '', content)
+            content = re.sub(r'include\s+.*\/(common|tweak)\.mk', '', content)
+            # Add back the correct tweak.mk include at the end if it's a tweak
+            content += f"\ninclude $(THEOS)/makefiles/tweak.mk\n"
+            with open(makefile_path, 'w') as f: f.write(content)
 
-        # Build environment
         env = os.environ.copy()
         env["THEOS"] = THEOS_PATH
         env["THEOS_MAKE_PATH"] = os.path.join(THEOS_PATH, "makefiles")
         env["PATH"] = f"{THEOS_PATH}/bin:{THEOS_PATH}/toolchain/bin:{env.get('PATH', '')}"
         
-        # Add libtinfo5 path
-        lib_path = "/opt/render/project/src/lib"
-        if os.path.exists(lib_path):
-            env["LD_LIBRARY_PATH"] = f"{lib_path}:{env.get('LD_LIBRARY_PATH', '')}"
-
-        # Compile
         await status_msg.edit_text("🔨 Compiling with SDK 12.4...")
         
         make_cmd = [
@@ -186,19 +178,12 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
         )
         active_processes[user_id] = process
-        
-        try:
-            stdout, _ = process.communicate(timeout=BUILD_TIMEOUT)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            stdout = "Build timed out."
+        stdout, _ = process.communicate(timeout=BUILD_TIMEOUT)
 
         if process.returncode == 0:
-            await status_msg.edit_text("✅ Build Success! Sending files...")
-            
-            # Send files
+            await status_msg.edit_text("✅ Success! Sending files...")
             found = False
-            # .deb
+            # Send .deb
             pkg_dir = os.path.join(project_root, "packages")
             if os.path.exists(pkg_dir):
                 for f in os.listdir(pkg_dir):
@@ -206,22 +191,19 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         with open(os.path.join(pkg_dir, f), 'rb') as deb:
                             await update.message.reply_document(deb, caption=f"📦 {f}")
                             found = True
-            
-            # .dylib
+            # Send .dylib
             for root, _, files in os.walk(os.path.join(project_root, ".theos/obj")):
                 for f in files:
                     if f.endswith(".dylib"):
                         with open(os.path.join(root, f), 'rb') as dylib:
                             await update.message.reply_document(dylib, caption=f"📚 {f}")
                             found = True
-            
-            if not found:
-                await update.message.reply_text("⚠️ Build finished but no .deb or .dylib found in output folders.")
+            if not found: await update.message.reply_text("⚠️ Build finished but no output found.")
         else:
             log_path = os.path.join(build_dir, "error.log")
             with open(log_path, 'w') as f: f.write(stdout)
             with open(log_path, 'rb') as f:
-                await update.message.reply_document(f, caption="❌ Build Failed. Check logs.")
+                await update.message.reply_document(f, caption="❌ Build Failed.")
             await status_msg.edit_text("❌ Compilation Failed.")
 
     except Exception as e:
@@ -237,8 +219,6 @@ def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
-    app.add_handler(CallbackQueryHandler(status_callback, pattern="^status$"))
-    app.add_handler(CallbackQueryHandler(cancel_callback, pattern="^cancel$"))
     logger.info("Bot started")
     app.run_polling()
 
