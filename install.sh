@@ -25,13 +25,10 @@ test -f "$THEOS/makefiles/common.mk" || (echo "Error: common.mk missing" && exit
 test -f "$THEOS/makefiles/tweak.mk" || (echo "Error: tweak.mk missing" && exit 1)
 
 # Handle SDKs
-mkdir -p "$THEOS/sdks"
-if ! find "$THEOS/sdks" -maxdepth 1 -type d -name '*.sdk' -print -quit | grep -q .; then
-    echo "Downloading iOS SDKs..."
-    rm -rf /tmp/theos_sdks
-    git clone --depth 1 https://github.com/theos/sdks.git /tmp/theos_sdks
-    find /tmp/theos_sdks -maxdepth 1 -type d -name '*.sdk' -exec cp -R {} "$THEOS/sdks/" \;
-    rm -rf /tmp/theos_sdks
+if [ ! -d "$THEOS/sdks/.git" ] && [ ! -f "$THEOS/sdks/iPhoneOS16.5.sdk/SDKSettings.plist" ]; then
+    echo "Downloading iOS SDKs directly..."
+    rm -rf "$THEOS/sdks"
+    git clone --depth 1 https://github.com/theos/sdks.git "$THEOS/sdks"
 fi
 
 # Final verification report

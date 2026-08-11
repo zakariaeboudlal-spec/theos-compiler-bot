@@ -874,23 +874,23 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"Build slot released. Active builds: {active_builds}")
 
 
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from flask import Flask
 import threading
 
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/plain")
-        self.end_headers()
-        self.wfile.write(b"Theos Compiler Bot is running 24/7!")
-    def log_message(self, format, *args):
-        pass
+health_app = Flask(__name__)
+
+@health_app.route('/health')
+def health_check():
+    return "Theos Compiler Bot is running 24/7!", 200
+
+@health_app.route('/')
+def index():
+    return "Bot is alive", 200
 
 def run_http_server():
     port = int(os.getenv("PORT", "10000"))
-    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
-    logger.info(f"HTTP health check server running on port {port}")
-    server.serve_forever()
+    logger.info(f"Starting Flask health check server on port {port}")
+    health_app.run(host='0.0.0.0', port=port)
 
 def main():
     """Start the bot"""
