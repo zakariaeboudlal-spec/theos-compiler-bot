@@ -529,26 +529,24 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         theos_sdks = os.path.join(THEOS_PATH, "sdks")
 
         if not os.path.isfile(theos_common):
-            error_msg = f"Theos common.mk not found: {theos_common}"
-            logger.error(error_msg)
-            await status_msg.edit_text(f"❌ *Build Error*\n\n{error_msg}", parse_mode='Markdown')
-            return
+            raise RuntimeError(f"Theos common.mk not found: {theos_common}")
 
         if not os.path.isfile(theos_tweak):
-            error_msg = f"Theos tweak.mk not found: {theos_tweak}"
-            logger.error(error_msg)
-            await status_msg.edit_text(f"❌ *Build Error*\n\n{error_msg}", parse_mode='Markdown')
-            return
+            raise RuntimeError(f"Theos tweak.mk not found: {theos_tweak}")
 
-        sdk_list = [d for d in os.listdir(theos_sdks) if d.endswith(".sdk")] if os.path.isdir(theos_sdks) else []
+        sdk_list = [
+            d for d in os.listdir(theos_sdks)
+            if d.endswith(".sdk")
+        ] if os.path.isdir(theos_sdks) else []
+
         if not sdk_list:
-            error_msg = f"No iOS SDK found in: {theos_sdks}"
-            logger.error(error_msg)
-            await status_msg.edit_text(f"❌ *Build Error*\n\n{error_msg}", parse_mode='Markdown')
-            return
+            raise RuntimeError(f"No iOS SDK found in: {theos_sdks}")
         
-        os.environ['THEOS'] = THEOS_PATH
-        os.environ['THEOS_MAKE_PATH'] = os.path.join(THEOS_PATH, "makefiles")
+        # Explicit environment setup
+        build_env = os.environ.copy()
+        build_env["THEOS"] = THEOS_PATH
+        build_env["THEOS_MAKE_PATH"] = os.path.join(THEOS_PATH, "makefiles")
+        build_env["PATH"] = f"{THEOS_PATH}/bin:{build_env.get('PATH', '')}"
         
         # Clean previous builds with timeout
         try:
@@ -570,12 +568,6 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup
         )
         
-        # Pass custom environment with explicit THEOS and THEOS_MAKE_PATH
-        build_env = os.environ.copy()
-        build_env['THEOS'] = THEOS_PATH
-        build_env['THEOS_MAKE_PATH'] = os.path.join(THEOS_PATH, "makefiles")
-        build_env['PATH'] = f"{THEOS_PATH}/bin:{build_env.get('PATH', '')}"
-
         # Start compilation with correct environment
         process = subprocess.Popen(
             ["make", "package", f"THEOS={THEOS_PATH}", f"THEOS_MAKE_PATH={build_env['THEOS_MAKE_PATH']}"],
