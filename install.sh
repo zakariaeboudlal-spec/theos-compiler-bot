@@ -1,27 +1,45 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
+
 echo "Starting installation..."
 
+# Install python dependencies
 pip install --no-cache-dir -r requirements.txt
 
-# تثبيت Theos مباشرة داخل مجلد المشروع لضمان توفر tweak.mk دائماً
-THEOS_DIR="$(pwd)/theos"
-echo "Installing Theos to $THEOS_DIR..."
-mkdir -p "$THEOS_DIR"
-if [ -d "$THEOS_DIR/.git" ]; then
-    cd "$THEOS_DIR" && git pull || true
-else
-    git clone --recursive https://github.com/theos/theos.git "$THEOS_DIR" || echo "Theos clone failed"
+# Determine THEOS path
+THEOS_DIR="${THEOS:-$(pwd)/theos}"
+export THEOS="$THEOS_DIR"
+
+echo "Setting THEOS to: $THEOS"
+
+# Clone Theos if not exists
+if [ ! -d "$THEOS/.git" ]; then
+    echo "Cloning Theos..."
+    rm -rf "$THEOS"
+    git clone --depth 1 --recurse-submodules https://github.com/theos/theos.git "$THEOS"
 fi
 
-# تحميل الـ SDKs
-SDK_DIR="$THEOS_DIR/sdks"
-mkdir -p "$SDK_DIR"
-if [ -z "$(ls -A $SDK_DIR)" ]; then
+# Verify critical files exist
+echo "Verifying Theos structure..."
+test -f "$THEOS/makefiles/common.mk" || (echo "Error: common.mk missing" && exit 1)
+test -f "$THEOS/makefiles/tweak.mk" || (echo "Error: tweak.mk missing" && exit 1)
+
+# Handle SDKs
+mkdir -p "$THEOS/sdks"
+if ! find "$THEOS/sdks" -maxdepth 1 -type d -name '*.sdk' -print -quit | grep -q .; then
     echo "Downloading iOS SDKs..."
-    git clone --recursive https://github.com/theos/sdks.git /tmp/theos_sdks || true
-    cp -r /tmp/theos_sdks/*.sdk "$SDK_DIR/" 2>/dev/null || true
+    rm -rf /tmp/theos_sdks
+    git clone --depth 1 https://github.com/theos/sdks.git /tmp/theos_sdks
+    find /tmp/theos_sdks -maxdepth 1 -type d -name '*.sdk' -exec cp -R {} "$THEOS/sdks/" \;
     rm -rf /tmp/theos_sdks
 fi
+
+# Final verification report
+echo "=== THEOS CHECK ==="
+echo "THEOS=$THEOS"
+echo "THEOS_MAKE_PATH=$THEOS/makefiles"
+ls -l "$THEOS/makefiles/tweak.mk"
+echo "Available SDKs:"
+find "$THEOS/sdks" -maxdepth 1 -type d -name '*.sdk'
 
 echo "Installation completed successfully."
