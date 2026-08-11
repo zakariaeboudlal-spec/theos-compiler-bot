@@ -1,5 +1,3 @@
-python-telegram-bot==21.10
-patool==1.12
-pyunpack==0.3
+python-telegram-bot
 flask
-werkzeug
+patool
