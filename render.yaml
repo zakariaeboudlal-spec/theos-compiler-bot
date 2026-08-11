@@ -5,7 +5,7 @@ services:
     region: frankfurt
     plan: free
     buildCommand: "bash install.sh"
-    startCommand: "python bot.py"
+    startCommand: "python3 bot.py"
     healthCheckPath: /health
     envVars:
       - key: TELEGRAM_TOKEN
@@ -13,7 +13,7 @@ services:
       - key: LOG_GROUP_ID
         value: "0"
       - key: THEOS
-        value: "/opt/render/project/.render/theos"
+        value: "/opt/render/project/src/theos"
       - key: MAX_CONCURRENT_BUILDS
         value: "1"
       - key: BUILD_TIMEOUT
